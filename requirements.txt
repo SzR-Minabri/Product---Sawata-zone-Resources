@@ -2,4 +2,4 @@ streamlit
 google-genai
 pillow
 pydantic
-streamlit-drawable-canvasS
+streamlit-drawable-canvas
