@@ -1,2 +1,5 @@
 pillow
+streamlit
 google-genai
+pydantic
+streamlit-drawable-canvas
