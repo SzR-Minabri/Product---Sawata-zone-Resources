@@ -429,7 +429,7 @@ def inyectar_recursos_inteligentes(texto, num_parrafo, col_render, bloque_refere
     if "ia_sugerencias" not in bloque_referencia:
         bloque_referencia["ia_sugerencias"] = ""
         
-    if bloque_referencia["ia_sugerencias"]:
+    if bloque_referencia.get("ia_sugerencias"):
         with col_render:
             st.markdown(
                 """
@@ -453,7 +453,7 @@ def inyectar_recursos_inteligentes(texto, num_parrafo, col_render, bloque_refere
         return
 
     with col_render:
-        if st.button(f"🧠 Supervisor I.A. Refuerzo - Bloque {num_parrafo:02d}", key=f"btn_ia_gate_{st.session_state.materia_activa}_{tema_actual}_{num_parrafo}", use_container_width=True):
+        if st.button(f"🧠 I.A. Refuerzo - Bloque {num_parrafo:02d}", key=f"btn_ia_gate_{st.session_state.materia_activa}_{tema_actual}_{num_parrafo}", use_container_width=True):
             st.session_state.ejecutando_peticion_ia = True # 🔒 Cierra compuerta al hacer clic
             st.rerun() # Fuerza un redibujado instantáneo para congelar los text_areas
 
@@ -499,11 +499,15 @@ def inyectar_recursos_inteligentes(texto, num_parrafo, col_render, bloque_refere
                                 tiempo_espera_micro = (1.5 ** intento) + random.uniform(0.3, 1.0)
                                 time.sleep(tiempo_espera_micro)
                             else:
-                                # Si es un error de credenciales o de API Key, se lanza de inmediato
+                                # 🔓 LIBERACIÓN PREVENTIVA: Si falla por llaves o credenciales, abrimos la mesa antes de lanzar
+                                st.session_state.ejecutando_peticion_ia = False
                                 raise e_micro_pico
 
                     # 🔒 COMPUERTA DE CONTENCIÓN: Si el supervisor falla tras 3 intentos, evita el crash en la mesa de trabajo
                     if response is None or not hasattr(response, 'text') or not response.text:
+                        # 🚀 PARCHE 1: Abrimos físicamente la compuerta antes de congelar con st.stop()
+                        st.session_state.ejecutando_peticion_ia = False
+                        
                         detalle_error = str(ultimo_error_bloque if ultimo_error_bloque else 'Timeout')
                         html_explorador_error = f"""
                             <div style='
@@ -513,11 +517,11 @@ def inyectar_recursos_inteligentes(texto, num_parrafo, col_render, bloque_refere
                                padding: 12px 16px;
                                margin-top: 10px;
                                margin-bottom: 10px;
-                               font-family: \"Inter\", sans-serif;
+                               font-family: "Inter", sans-serif;
                             '>
                                <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 6px;'>
                                    <span style='font-size: 15px; animation: pulse 2s infinite;'>🛸</span>
-                                   <strong style='color: #B45309; font-size: 13px; font-family: \"Playfair Display\", serif;'>SƨR AI ~ Servidor en Exploración</strong>
+                                   <strong style='color: #B45309; font-size: 13px; font-family: "Playfair Display", serif;'>SƨR AI ~ Servidor en Exploración</strong>
                                </div>
                                <p style='margin: 0; font-size: 12px; color: #78350F; line-height: 1.45; font-style: italic;'>
                                    Nuestro robot asistente A.I. está explorando rutas alternas, autopista principal saturada.
@@ -537,24 +541,23 @@ def inyectar_recursos_inteligentes(texto, num_parrafo, col_render, bloque_refere
                     # 📐 SANEADO Y SELLADO SEGURO DE RESPUESTA SƨR
                     if response and hasattr(response, 'text') and response.text.strip():
                         bloque_referencia["ia_sugerencias"] = response.text
-                        # 🔒 SELLO DE COEXISTENCIA: Almacenamos el texto base para la lógica del botón Actualizar
                         bloque_referencia["ia_origen_texto"] = texto.strip()
-                        st.session_state.ejecutando_peticion_ia = False # 🔓 Abre compuerta al terminar con éxito                
+                        
+                        # 🚀 PARCHE 2: Sincronizamos la variable de actualización de llaves para despertar la nube
+                        st.session_state.rep_bug_exp += 1
+                        st.session_state.ejecutando_peticion_ia = False # 🔓 Abre compuerta con éxito                
                         guardar_respaldo()
                         st.rerun()
                     else:
-                        st.error("⚠️ La I.A. responde texto vacío. Resolviendo... Intenta otra vez.")
+                        st.session_state.ejecutando_peticion_ia = False
+                        st.error("⚠️ La I.A. responde texto vacío.⚠️\nResolviendo... Intenta otra vez.")
                     
-                except Exception as e:
-                    # LÍNEA DE DIAGNÓSTICO ACTIVA: Muestra fallos reales en la consola o app
-                    st.error(f"💥 Error real del SDK: {str(e)}")
-                    error_msg = str(e).lower()
-                    if "quota" in error_msg or "429" in error_msg or "503" in error_msg or "unavailable" in error_msg:
-                        st.error("⏳ Los servidores de I.A. están saturados en este momento, espera un par de minutos. Resolviendo...")
-                    elif "api_key" in error_msg:
-                        st.error("🔑 Error de credenciales: La clave ingresada en el servidor es inválida.")
-                    else:
-                        st.warning("✨ [SƨR - Servidor en espera... Resolviendo...]")
+                except Exception as e_interno:
+                    # 🚀 PARCHE 3: Captura genérica de excepciones sanitizada para el SDK nuevo
+                    st.session_state.ejecutando_peticion_ia = False
+                    st.error("⏳ El servidor de Google experimentó un retraso temporal en la nube.")
+                    with st.expander("🛠️ Ver bitácora técnica de inspección"):
+                        st.code(f"Detalles: {str(e_interno)}")
 
 # --- DEFINICIÓN DE LA PLANTILLA ÚNICA DE PROMPT A.I. SƨR ---
 def ejecutar_peticion_ia_bunker(texto_apuntes, prompt=PROMPT_PLANTILLA_QUIZ):
@@ -695,7 +698,7 @@ def callback_agregar_asignatura_nueva():
             return  # 🔒 COMPUERTA DE SEGURIDAD: Corta la ejecución de inmediato para evitar la sobrescritura
         else:
             fecha_hoy = datetime.now().strftime("%Y-%m-%d")
-            tema_inicial_defecto = "Introducción"
+            tema_inicial_defecto = "Escribe el nuevo tema aquí..."
             llave_introduccion_szr = f"Clase 01 | {fecha_hoy} | {tema_inicial_defecto}"
             
             # 🚀 SINCRONIZACIÓN S.E.D.E: Agregamos la metadata requerida por tus bloques centrales
@@ -747,6 +750,7 @@ def ejecutar_generacion_quiz_szr(texto_acumulado_apuntes: str, barra_progreso=No
     """
     # 🔒 COMPUERTA DE SEGURIDAD PREVENTIVA
     if not texto_acumulado_apuntes.strip():
+        st.session_state.ejecutando_peticion_ia = False # 🔓 Libera textareas si entra vacío
         raise ValueError("El bloque de apuntes está completamente vacío.")
 
     response = None
@@ -761,7 +765,7 @@ def ejecutar_generacion_quiz_szr(texto_acumulado_apuntes: str, barra_progreso=No
             
             # 🔄 REUTILIZACIÓN DE TU FUNCIÓN ORIGINAL INTACTA
             response = ejecutar_peticion_ia_bunker(texto_acumulado_apuntes, prompt=PROMPT_PLANTILLA_QUIZ)
-            
+
             if response and response.text:
                 break  # Rompe el bucle si responde con éxito
         except Exception as e_quiz_pico:
@@ -773,10 +777,17 @@ def ejecutar_generacion_quiz_szr(texto_acumulado_apuntes: str, barra_progreso=No
                 tiempo_espera_bloqueo = (2 ** intento) + random.uniform(0.5, 1.5)
                 time.sleep(tiempo_espera_bloqueo)
             else:
-                raise e_quiz_pico  # Lanza errores fatales de inmediato (credenciales, etc.)
-
+                st.session_state.ejecutando_peticion_ia = False
+                raise e_quiz_pico 
+            
+    # 🔒 COMPUERTA DE CONTENCIÓN ANTI-CONGELAMIENTO SƨR
     if response is None or not hasattr(response, 'text') or not response.text:
-        raise genai.errors.APIError(f"Servidores de Google congestionados. Detalles: {str(ultimo_error_capturado if ultimo_error_capturado else 'Timeout')}")
+        # 🚀 PARCHE 1: Abrimos físicamente la compuerta antes de lanzar el fallo para liberar la mesa de trabajo
+        st.session_state.ejecutando_peticion_ia = False
+        detalle_error = str(ultimo_error_capturado if ultimo_error_capturado else 'Timeout de Red')
+
+        # 🚀 PARCHE 2: Usamos RuntimeError en lugar de APIError para evitar el bug del argumento 'response_json'
+        raise RuntimeError(f"Servidores de Google congestionados. Detalles técnicos: {detalle_error}")
 
     if barra_progreso:
         barra_progreso.progress(85, text="✧📜 [SƨR Core]: Estructurando reactivos y aplicando formato...")
@@ -836,6 +847,7 @@ def ejecutar_generacion_quiz_szr(texto_acumulado_apuntes: str, barra_progreso=No
         "ejercicios": ejs[:3],
         "truco": res_json.get("truco", "Mantén un mapa mental estructurado.")
     }
+
 
 # --- PANEL LATERAL: BRANDING Y ASIGNATURAS (REPARADO Y BLINDADO) ---
 # 📐 LA REPARACIÓN DEFINITIVA: Separamos el logotipo en bloques limpios para evitar rupturas de comillas HTML

@@ -9,6 +9,8 @@ import json
 import base64
 from datetime import datetime
 import os
+from streamlit_drawable_canvas import st_canvas
+
 
 # 1. Esquema estricto para obligar a Gemini a estructurar y jerarquizar la información
 class PizarraSchema(BaseModel):
@@ -18,7 +20,6 @@ class PizarraSchema(BaseModel):
 
 @st.dialog("🖥️ Pizarra de Trazos Activa SƨR", width="large")
 def abrir_pizarra_flotante_szr(materia, tema, indice_bloque, bloque_ref, funcion_guardar):
-    from streamlit_drawable_canvas import st_canvas
     
     # 🔒 MEMORIA INMUNE SƨR: Resguarda la estructura de trazos del lienzo
     llave_memoria_trazos = f"trazos_canvas_{materia}_{tema}_{indice_bloque}"
@@ -118,7 +119,7 @@ def abrir_pizarra_flotante_szr(materia, tema, indice_bloque, bloque_ref, funcion
 
                         # Relectura limpia para el payload de la API
                         buffer_img.seek(0)
-                        img_pil_lista = Image.open(buffer_api := buffer_img)
+                        img_pil_lista = Image.open(buffer_img)
 
                         response = client.models.generate_content(
                             model='gemini-2.5-flash',
@@ -130,6 +131,7 @@ def abrir_pizarra_flotante_szr(materia, tema, indice_bloque, bloque_ref, funcion
                             )
                         )
 
+                        # 🚀 CAPA DE PROCESAMIENTO CONECTADA (Correctamente anidada adentro del try)
                         if response and response.text:
                             res_json = json.loads(response.text.strip())
                             
@@ -137,12 +139,10 @@ def abrir_pizarra_flotante_szr(materia, tema, indice_bloque, bloque_ref, funcion
                             texto_contenido = res_json.get("contenido", "")
                             texto_observacion = res_json.get("observaciones", "")
                             
-                            # 4. Enrutamiento ergonómico según la posición del Alfiler/Clip
+                            # Enrutamiento ergonómico
                             if forzar_observacion:
-                                # Va directo y limpio al estante derecho
                                 bloque_ref["observacion"] = f"{bloque_ref['observacion']}\n\n{texto_contenido}\n{texto_observacion}".strip()
                             else:
-                                # Aplica formato estructurado al contenido según la detección jerárquica de Gemini
                                 if jerarquia_detectada == "Título Principal":
                                     bloque_ref["contenido"] = f"### {texto_contenido}\n\n{bloque_ref['contenido']}".strip()
                                 elif jerarquia_detectada == "Subtítulo":
@@ -150,23 +150,26 @@ def abrir_pizarra_flotante_szr(materia, tema, indice_bloque, bloque_ref, funcion
                                 else:
                                     bloque_ref["contenido"] = f"{bloque_ref['contenido']}\n\n{texto_contenido}".strip()
                                 
-                                # Las notas secundarias van de fondo a la derecha
                                 if texto_observacion:
                                     bloque_ref["observacion"] = f"{bloque_ref['observacion']}\n\n{texto_observacion}".strip()
 
-                            # 5. Sello de reinicio para que la batería de Quizzes detecte el nuevo material
-                            st.session_state.datos_materias[materia]["temas"][tema]["estado_evaluacion"] = "pendiente"
+                        # 🔒 LIBERACIÓN HIGIÉNICA DE MEMORIA RAM (Evita el Code 1ST)
+                        img_raw.close()
+                        img_rgb.close()
+                        buffer_img.close()
+
+                        st.session_state.datos_materias[materia]["temas"][tema]["estado_evaluacion"] = "pendiente"
+                        st.session_state.rep_bug_exp += 1 # 🚀 Despierta el refresco en caliente de la marquesina
+                        
+                        if canvas_resultado.json_data is not None:
+                            st.session_state[llave_memoria_trazos] = canvas_resultado.json_data
                             
-                            # Persistencia y Cierre Limpio
-                            if canvas_resultado.json_data is not None:
-                                st.session_state[llave_memoria_trazos] = canvas_resultado.json_data
-                                
-                            funcion_guardar()
-                            st.session_state[f"pizarra_activa_global_{indice_bloque}"] = False
-                            st.toast("¡Trazo analizado e inyectado a los subproductos!", icon="🪄")
-                            time.sleep(0.5)
-                            st.rerun()
-                            
+                        funcion_guardar()
+                        st.session_state[f"pizarra_activa_global_{indice_bloque}"] = False
+                        st.toast("¡Trazo analizado con éxito!", icon="🪄")
+                        time.sleep(0.4)
+                        st.rerun()
+
                     except Exception as e:
                         st.error(f"💥 Error al procesar visión artificial: {str(e)}")
             else:
